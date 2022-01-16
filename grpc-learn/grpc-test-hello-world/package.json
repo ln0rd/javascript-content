@@ -1,0 +1,17 @@
+{
+  "name": "grpc-test-hello-world",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "leonardo lemes bufalo",
+  "license": "ISC",
+  "dependencies": {
+    "@grpc/proto-loader": "^0.5.2",
+    "grpc": "^1.23.3",
+    "grpc-kit": "^0.2.0",
+    "proto-loader": "^0.2.0"
+  }
+}
