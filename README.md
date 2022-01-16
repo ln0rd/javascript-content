@@ -6,3 +6,6 @@ This project is a compiled content about JS projects, courses and tests that I h
 - grcp-learn
 - nodeBr-course
 - verify-conciliation
+- wirecard-technical-challange
+- javascript-ninja
+- api-typescript
