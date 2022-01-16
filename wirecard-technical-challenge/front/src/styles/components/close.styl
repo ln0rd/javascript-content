@@ -1,0 +1,33 @@
+.close
+    width 30px
+    height 30px
+    position absolute
+    top 0
+    right 0
+    transition .3s ease all
+    cursor pointer
+
+    &:hover
+        width 35px
+        height 35px
+        transition .3s ease all
+
+    &:after
+        content ''
+        position absolute
+        width 4px
+        height 100%
+        background #0A3B5C
+        border-radius 2px
+        transform rotate(45deg)
+        transition .3s ease all
+
+    &:before
+        background #0A3B5C
+        border-radius 2px
+        content ''
+        height 100%
+        position absolute
+        transform rotate(-45deg)
+        transition .3s ease all
+        width 4px

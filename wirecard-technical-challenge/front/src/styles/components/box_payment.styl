@@ -1,0 +1,54 @@
+.box
+    align-items flex-start
+    background white
+    border-radius 15px
+    display flex
+    flex-direction column
+    min-height 400px
+    padding 10px
+    position relative
+    transition .3s ease all
+    width 800px
+    z-index 0
+
+    .box-middle
+        padding 10px
+
+    &.payment
+        height 0
+        opacity 0
+        transition .3s ease all
+        width 0
+
+        &.-active
+            height auto
+            opacity 1
+            width 800px
+            z-index 1
+            transition .3s ease all
+
+    &.buyer
+        height 0
+        opacity 0
+        transition .3s ease all
+        width 0
+
+        &.-active
+            height auto
+            opacity 1
+            width 800px
+            z-index 1
+            transition .3s ease all
+
+    &.status
+        height 0
+        opacity 0
+        transition .3s ease all
+        width 0
+
+        &.-active
+            opacity 1
+            z-index 1
+            height auto
+            width 800px
+            transition .3s ease all

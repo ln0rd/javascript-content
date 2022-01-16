@@ -1,0 +1,20 @@
+.payment-send, .payment-complete-send
+    width 300px
+    display flex
+    flex-direction column
+    justify-content flex-start
+    transition .2s ease all
+
+    input
+        margin-bottom 10px
+
+.payment-complete-send
+    width 0
+    height 0
+    overflow hidden
+
+
+    &.-active
+        transition .2s ease all
+        width 300px
+        height auto

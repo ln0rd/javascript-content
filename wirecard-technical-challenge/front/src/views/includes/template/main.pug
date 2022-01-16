@@ -1,0 +1,43 @@
+html( lang="pt" )
+
+    block details
+
+    head
+
+
+        meta(charset="UTF-8")
+        meta(name="viewport", content="width=device-width, initial-scale=1.0")
+        meta(http-equiv="X-UA-Compatible", content="ie=edge")
+        link(rel="stylesheet" type = 'text/css' href="../assets/css/main.css")
+        link(href="https://fonts.googleapis.com/css?family=Oswald" rel="stylesheet")
+        script(defer src="../assets/js/bundle.js")
+
+        //---------//
+        //- Title -//
+        //---------//
+
+        title #{title}
+
+
+        //---------------//
+        //- Description -//
+        //---------------//
+
+        meta( name = 'description' content = description )
+
+
+        //------------//
+        //- Fav Icon -//
+        //------------//
+
+        link( rel = 'icon' href = '../assets/icons/favicon.ico' )
+
+    body
+
+        //- include ../includes/global/header
+
+        .container
+
+            block body
+
+        //- include ../includes/global/footer
