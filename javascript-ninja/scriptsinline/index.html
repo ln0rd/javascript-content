@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" media="screen" href="main.css" />
+    <script src="main.js"></script>
+</head>
+<body>
+    <a href="javascript:boom()">Link</a>
+    <script>
+
+        function boom() {
+            alert('boom')
+        }
+    </script>
+
+    <div class="string" >teste</div>
+
+    <a href="" onclick="boom2()">Link2</a>
+    <script>
+        function boom2() {
+            alert('boom2')
+        }
+    </script>
+
+    <script defer>
+        var el = document.querySelector('.string');
+        console.log( el );
+    </script>
+
+</body>
+</html>
