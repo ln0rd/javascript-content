@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        - GITHUB_TOKEN=${GITHUB_TOKEN}
+    volumes:
+      - .:/home/node/app
+      - ./node_modules:/home/node/app/node_modules
+    ports:
+      - '4000:4000'
+    entrypoint: /home/node/app/node_modules/.bin/nodemon --watch "src/**" --ext "ts,json" --exec "ts-node -r tsconfig-paths/register src/index.ts"
+    env_file: .env
+  postgres:
+    image: 'postgres:12-alpine'
+    volumes:
+      - db_data:/data/postgres_dev
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=pricing-engine
+      - PGDATA=/data/postgres_dev
+    ports:
+      - '5432:5432'
+volumes:
+  db_data:

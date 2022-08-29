@@ -1,0 +1,105 @@
+{
+  "name": "infinity-gauntlet",
+  "version": "1.0.0",
+  "description": "The mighty system that powers Hash",
+  "private": true,
+  "author": "Hash Devs <devs@hash.com.br>",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/hashlab/infinity-gauntlet#readme",
+  "bugs": {
+    "url": "https://github.com/hashlab/infinity-gauntlet/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/hashlab/infinity-gauntlet.git"
+  },
+  "engines": {
+    "node": "10.24.1",
+    "npm": "6.14.12"
+  },
+  "scripts": {
+    "lint": "script/lint",
+    "build": "script/build",
+    "test": "make build-test && make test",
+    "refresh-api": "make build-api && make start-api"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run lint"
+    }
+  },
+  "dependencies": {
+    "@hashlab/account-client": "1.1.2",
+    "@hashlab/identity-client": "1.0.0-beta",
+    "@hashlab/logger": "^1.0.21-alpha.0",
+    "@hashlab/pix-merchant-client": "1.0.2",
+    "aws-sdk": "^2.410.0",
+    "babel-cli": "6.26.0",
+    "babel-preset-env": "1.6.1",
+    "babel-register": "6.26.0",
+    "bcrypt": "^5.0.1",
+    "big.js": "5.2.2",
+    "bunyan": "1.8.12",
+    "business-moment": "^1.1.9",
+    "co": "^4.6.0",
+    "console.table": "^0.10.0",
+    "dd-trace": "^0.36.3",
+    "generate-password": "^1.6.0",
+    "google-protobuf": "3.6.1",
+    "grpc": "1.15.1",
+    "ioredis": "^4.27.1",
+    "jsonwebtoken": "^8.5.1",
+    "module-alias": "2.0.3",
+    "nopt": "^4.0.1",
+    "ramda": "^0.26.1",
+    "rate-limiter-flexible": "^2.2.1",
+    "request-ip": "^2.1.3",
+    "semver": "^6.2.0",
+    "uuid-validate": "0.0.3"
+  },
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
+    "dotenv": "^8.0.0",
+    "envfile": "2.3.0",
+    "eslint": "^4.12.1",
+    "eslint-config-prettier": "2.9.0",
+    "eslint-plugin-import": "2.7.0",
+    "eslint-plugin-prettier": "2.6.0",
+    "eslint-plugin-promise": "3.6.0",
+    "eslint-plugin-security": "^1.4.0",
+    "faker": "^4.1.0",
+    "hippie": "0.5.1",
+    "husky": "^3.0.9",
+    "mocha": "^6.1.4",
+    "mocha-each": "^2.0.1",
+    "mocha-prepare": "^0.1.0",
+    "nock": "9.1.6",
+    "nyc": "^14.1.1",
+    "prettier": "1.10.2",
+    "sinon": "^7.3.2",
+    "sinon-as-promised": "^4.0.3",
+    "sinon-mongoose": "^2.3.0",
+    "supertest": "^4.0.2"
+  },
+  "workspaces": [
+    "src/framework/*",
+    "src/services/*"
+  ],
+  "_moduleAliases": {
+    "application": "build/application",
+    "framework": "build/framework",
+    "modules": "build/modules",
+    "test": "test"
+  },
+  "keywords": [
+    "cron",
+    "scheduler",
+    "mission-critical",
+    "tasks",
+    "api",
+    "core",
+    "database",
+    "events"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "The network layer our apps will use to work",
+  "private": true,
+  "author": "Hash Devs <devs@hash.com.br>",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/hashlab/infinity-gauntlet#readme",
+  "bugs": {
+    "url": "https://github.com/hashlab/infinity-gauntlet/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/hashlab/infinity-gauntlet.git"
+  },
+  "engines": {
+    "node": "10.24.1",
+    "npm": "6.14.12"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@hashlab/restify-cache": "^1.0.21-alpha.0",
+    "restify": "8.6.1",
+    "restify-cors-middleware": "1.1.0"
+  },
+  "keywords": [
+    "api",
+    "network",
+    "integrations",
+    "events"
+  ]
+}

@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  nginx-default.conf: |
+    upstream igapi {
+        server ig-api-terminal.ig-core-prod.svc.cluster.local:4000;
+    }
+    server {
+      listen 443 ssl;
+      ssl_certificate /etc/nginx/ssl/tls.crt;
+      ssl_certificate_key /etc/nginx/ssl/tls.key;
+      location / {
+        proxy_pass http://igapi;
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-ig
+  name: nginx-ig
+spec:
+  selector:
+    matchLabels:
+      app: nginx-ig
+  replicas: 2
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: 'false'
+      labels:
+        app: nginx-ig
+    spec:
+      volumes:
+      - name: secret-volume
+        secret:
+          # created ahead of time in the cluster, must be deleted manually
+          secretName: hash-wildcard
+      - name: configmap-volume
+        configMap:
+          name: nginx-config
+      containers:
+      - name: nginx-ig
+        image: nginx:1.17.6-alpine
+        ports:
+        - containerPort: 443
+        volumeMounts:
+        - mountPath: /etc/nginx/ssl
+          name: secret-volume
+        - mountPath: /etc/nginx/conf.d
+          name: configmap-volume
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ig-api-terminal-lb
+spec:
+  loadBalancerIP: 35.243.128.185
+  ports:
+  - name: nginx-ig
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  selector:
+    app: nginx-ig
+  type: LoadBalancer

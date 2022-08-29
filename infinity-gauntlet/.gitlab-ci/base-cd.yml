@@ -1,0 +1,314 @@
+.deploy_job: &deploy_def
+  tags:
+  - production-cd
+  image:
+    name: $GITLAB_REGISTRY/helm_deploy:latest
+  before_script:
+  - mkdir /root/.ssh
+  - echo $SSH | base64 -d > /root/.ssh/id_rsa
+  - chmod 600 /root/.ssh/id_rsa
+  - ssh-keyscan -t rsa github.com >> /root/.ssh/known_hosts
+  - mv $APP_CONFIG_PATH app-config.yaml
+  - git clone --depth=1 git@github.com:hashlab/infra.git
+  - kubectl create ns $NAMESPACE 2>/dev/null || true
+  - kubectl label namespace $NAMESPACE istio-injection=enabled --overwrite
+  - kubectl apply -n $NAMESPACE -f app-config.yaml
+
+# About the cipherSuites using for the api-integration-0001 gateway, they are used
+# to make conciliation with Leo, because of that, in this specific case we will
+# not use the global gateway but one in this ig-core-prod namespace.
+#
+# In the absence of documentation for this, we have the threads in the Slack:
+#
+# - About when they added this to IG https://hashlab.slack.com/archives/CDJ1K30MA/p1571935283116000?thread_ts=1571870364.081500&cid=CDJ1K30MA
+# - Problems we've had as a result of changing this https://hashlab.slack.com/archives/CBV1DLQP2/p1623417634180500
+web:ig-api:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    APP_NAME: ig-api
+  script: |-
+    set -e
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environmentType=production \
+      --set environment=$APP_NAME \
+      --set replicaCount=10 \
+      --set distributeAmongZones=true \
+      --set progressDeadlineSeconds=240 \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.NODE_ENV="production" \
+      --set env.PORT="4000" \
+      --set env.API_DEFAULT_VERSION="1.0.0" \
+      --set env.PAGINATION_MAX_LIMIT="5000" \
+      --set env.API_LOG_ALL_REQUESTS_BODY="true" \
+      --set env.APPLICATION_TYPE="Api" \
+      --set env.IG_MAX_OLD_SPACE_API="4096" \
+      --set env.CONNECTION_POOL_SIZE="200" \
+      --set env.ANTICIPATION_AMOUNT_THRESHOLD="200000000" \
+      --set env.ANTICIPATION_MIN_PAYABLE_NET_AMOUNT="1" \
+      --set env.LEOSAP_HASH_INTEGRATION="true" \
+      --set env.LEO_NEW_COMPANY_ID=5cf141b986642840656717f0 \
+      --set env.LEO_OLD_COMPANY_ID=598b7f54aec5bf0004a6bc8c \
+      --set env.IG_API_PROFILING_ENABLED=$IG_API_PROFILING_ENABLED \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set envFrom.secretRef[1]=app-cloudwalk-config \
+      --set envFrom.secretRef[2]=app-celer-config \
+      --set envFrom.secretRef[3]=app-pags-config \
+      --set envFrom.secretRef[4]=app-stone-config \
+      --set envFrom.secretRef[5]=app-se-config \
+      --set resources.limits.cpu=1000m \
+      --set resources.limits.memory=4Gi \
+      --set resources.requests.cpu=100m \
+      --set resources.requests.memory=384Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set containerPorts[0].portNumber=4000 \
+      --set containerPorts[0].portName=http \
+      --set service.targetPort=4000 \
+      --set service.port=4000 \
+      --set service.enabled=true \
+      --set livenessProbe.typeProbe=httpGet \
+      --set livenessProbe.initialDelaySeconds=$LIVENESS_INITIAL_DELAY_SECONDS \
+      --set livenessProbe.periodSeconds=$LIVENESS_PERIOD_SECONDS \
+      --set livenessProbe.timeoutSeconds=$LIVENESS_TIMEOUT_SECONDS \
+      --set livenessProbe.httpGet.path="/healthz/liveness" \
+      --set livenessProbe.httpGet.port=4000 \
+      --set readinessProbe.typeProbe=httpGet \
+      --set readinessProbe.initialDelaySeconds=$READINESS_INITIAL_DELAY_SECONDS \
+      --set readinessProbe.periodSeconds=$READINESS_PERIOD_SECONDS \
+      --set readinessProbe.timeoutSeconds=$READINESS_TIMEOUT_SECONDS \
+      --set readinessProbe.httpGet.path="/healthz/readiness" \
+      --set readinessProbe.httpGet.port=4000 > generic.yaml
+
+    helm template infra/charts/generic-config \
+      --set handlers[0].name=ig-api-integration-0001 \
+      --set handlers[0].compiledAdapter=listchecker \
+      --set handlers[0].params.overrides='["201.63.176.8/29"\, "189.36.49.192/27"\, "104.196.15.248/32"]' \
+      --set handlers[0].params.blacklist=false \
+      --set handlers[0].params.entryType=IP_ADDRESSES \
+      --set instances[0].name=external-address \
+      --set instances[0].compiledTemplate=listentry \
+      --set instances[0].params.value='request.headers["x-envoy-external-address"]' \
+      --set rules[0].name=ig-api-integration-0001 \
+      --set rules[0].match='request.host == "api-integration0001.hash.com.br"' \
+      --set rules[0].actions[0].handler=ig-api-integration-0001 \
+      --set rules[0].actions[0].instances[0]=external-address > api-integration-config.yaml
+
+    helm template infra/charts/generic-config \
+      --set virtualservices[0].name=ig-api \
+      --set virtualservices[0].hosts[0]=api.hashlab.com.br \
+      --set virtualservices[0].hosts[1]=api.hash.com.br \
+      --set virtualservices[0].gateways[0]="istio-system/hash-wildcard-gateway" \
+      --set virtualservices[0].http[0].destination[0].host=ig-api \
+      --set virtualservices[0].http[0].destination[0].portNumber=4000 \
+      --set virtualservices[0].http[0].timeout=60s \
+      --set virtualservices[0].http[0].routes[0].name=external-webhook \
+      --set virtualservices[0].http[0].routes[0].host=external-webhook \
+      --set virtualservices[0].http[0].routes[0].uri="/external_webhook" \
+      --set virtualservices[0].http[0].routes[0].port=4000 \
+      --set virtualservices[1].name=ig-api-integration-0001 \
+      --set virtualservices[1].hosts[0]=api-integration0001.hash.com.br \
+      --set virtualservices[1].gateways[0]="istio-system/hash-wildcard-gateway" \
+      --set virtualservices[1].http[0].destination[0].host=ig-api \
+      --set virtualservices[1].http[0].destination[0].portNumber=4000 \
+      --set virtualservices[1].http[0].timeout=60s \
+      --set virtualservices[1].http[0].routes[0].name=external-webhook \
+      --set virtualservices[1].http[0].routes[0].host=external-webhook \
+      --set virtualservices[1].http[0].routes[0].uri="/external_webhook" \
+      --set virtualservices[1].http[0].routes[0].port=4000 > routes.yaml
+    kubectl apply -n $NAMESPACE -f generic.yaml -f routes.yaml -f api-integration-config.yaml
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
+      changes:
+      - deploy/web.ig-api
+      when: manual
+
+web:external-webhook:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    APP_NAME: external-webhook
+  script: |-
+    set -e
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=3 \
+      --set distributeAmongZones=true \
+      --set progressDeadlineSeconds=240 \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.NODE_ENV="production" \
+      --set env.PORT="4000" \
+      --set env.API_DEFAULT_VERSION="1.0.0" \
+      --set env.PAGINATION_MAX_LIMIT="5000" \
+      --set env.API_LOG_ALL_REQUESTS_BODY="true" \
+      --set env.APPLICATION_TYPE="Api" \
+      --set env.IG_MAX_OLD_SPACE_API="1536" \
+      --set env.CONNECTION_POOL_SIZE="200" \
+      --set env.ANTICIPATION_AMOUNT_THRESHOLD="200000000" \
+      --set env.ANTICIPATION_MIN_PAYABLE_NET_AMOUNT="1" \
+      --set env.LEOSAP_HASH_INTEGRATION="true" \
+      --set env.LEO_NEW_COMPANY_ID=5cf141b986642840656717f0 \
+      --set env.LEO_OLD_COMPANY_ID=598b7f54aec5bf0004a6bc8c \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set envFrom.secretRef[1]=app-cloudwalk-config \
+      --set envFrom.secretRef[2]=app-celer-config \
+      --set envFrom.secretRef[3]=app-pags-config \
+      --set envFrom.secretRef[4]=app-stone-config \
+      --set envFrom.secretRef[5]=app-se-config \
+      --set resources.limits.cpu=1000m \
+      --set resources.limits.memory=2048Mi \
+      --set resources.requests.cpu=100m \
+      --set resources.requests.memory=384Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set containerPorts[0].portNumber=4000 \
+      --set containerPorts[0].portName=http \
+      --set service.targetPort=4000 \
+      --set service.port=4000 \
+      --set service.enabled=true \
+      --set livenessProbe.typeProbe=httpGet \
+      --set livenessProbe.httpGet.path="/healthz/liveness" \
+      --set livenessProbe.httpGet.port=4000 \
+      --set readinessProbe.typeProbe=httpGet \
+      --set readinessProbe.httpGet.path="/healthz/readiness" \
+      --set readinessProbe.httpGet.port=4000 > generic.yaml
+    kubectl apply -n $NAMESPACE -f generic.yaml
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
+      changes:
+      - deploy/web.external-webhook
+      when: manual
+
+webhook:ig-webhook:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    APP_NAME: ig-webhook
+  script: |-
+    set -e
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set distributeAmongZones=true \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.TZ=$APPLICATION_TIMEZONE \
+        --set env.APPLICATION_TIMEZONE=$APPLICATION_TIMEZONE \
+        --set env.IG_MAX_OLD_SPACE_WEBHOOK="768" \
+        --set env.NODE_ENV="production" \
+        --set env.APPLICATION_TYPE="WebHook" \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=1000m \
+        --set resources.limits.memory=1024Mi \
+        --set resources.requests.cpu=20m \
+        --set resources.requests.memory=256Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
+      changes:
+      - deploy/webhook.ig-webhook
+      when: manual
+
+#
+# Development/stagging environment
+#
+web:ig-api-dev:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    APP_NAME: ig-api-dev
+    NAMESPACE: ig-core-dev
+  script: |-
+    set -e
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template infra/charts/generic --name app \
+      --set environmentType=production \
+      --set environment=$APP_NAME \
+      --set replicaCount=6 \
+      --set distributeAmongZones=true \
+      --set progressDeadlineSeconds=240 \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.NODE_ENV="production" \
+      --set env.PORT="4000" \
+      --set env.API_DEFAULT_VERSION="1.0.0" \
+      --set env.PAGINATION_MAX_LIMIT="5000" \
+      --set env.API_LOG_ALL_REQUESTS_BODY="true" \
+      --set env.APPLICATION_TYPE="Api" \
+      --set env.IG_MAX_OLD_SPACE_API="1536" \
+      --set env.CONNECTION_POOL_SIZE="200" \
+      --set env.ANTICIPATION_AMOUNT_THRESHOLD="200000000" \
+      --set env.ANTICIPATION_MIN_PAYABLE_NET_AMOUNT="1" \
+      --set env.LEOSAP_HASH_INTEGRATION="true" \
+      --set env.LEO_NEW_COMPANY_ID=5cf141b986642840656717f0 \
+      --set env.LEO_OLD_COMPANY_ID=598b7f54aec5bf0004a6bc8c \
+      --set env.IDENTITY_API_GRPC_URL=identity-api.identity-dev.svc.cluster.local:13666 \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set envFrom.secretRef[1]=app-cloudwalk-config \
+      --set envFrom.secretRef[2]=app-celer-config \
+      --set envFrom.secretRef[3]=app-pags-config \
+      --set envFrom.secretRef[4]=app-stone-config \
+      --set envFrom.secretRef[5]=app-se-config \
+      --set resources.limits.cpu=500m \
+      --set resources.limits.memory=1024Mi \
+      --set resources.requests.cpu=100m \
+      --set resources.requests.memory=384Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set containerPorts[0].portNumber=4000 \
+      --set containerPorts[0].portName=http \
+      --set service.targetPort=4000 \
+      --set service.port=4000 \
+      --set service.enabled=true \
+      --set livenessProbe.typeProbe=httpGet \
+      --set livenessProbe.httpGet.path="/healthz/liveness" \
+      --set livenessProbe.httpGet.port=4000 \
+      --set readinessProbe.typeProbe=httpGet \
+      --set readinessProbe.httpGet.path="/healthz/readiness" \
+      --set readinessProbe.httpGet.port=4000 > generic.yaml
+
+    helm template infra/charts/generic-config \
+      --set handlers[0].name=ig-api-integration-0001-dev \
+      --set handlers[0].compiledAdapter=listchecker \
+      --set handlers[0].params.overrides='["201.63.176.8/29"\, "189.36.49.192/27"\, "104.196.15.248/32"]' \
+      --set handlers[0].params.blacklist=false \
+      --set handlers[0].params.entryType=IP_ADDRESSES \
+      --set instances[0].name=external-address \
+      --set instances[0].compiledTemplate=listentry \
+      --set instances[0].params.value='request.headers["x-envoy-external-address"]' \
+      --set rules[0].name=ig-api-integration-0001-dev \
+      --set rules[0].match='request.host == "api-integration0001-dev.hash.com.br"' \
+      --set rules[0].actions[0].handler=ig-api-integration-0001-dev \
+      --set rules[0].actions[0].instances[0]=external-address > api-integration-config.yaml
+  environment:
+    name: stagging
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "stagging/*"
+      changes:
+        - deploy/web.ig-api
+      when: manual

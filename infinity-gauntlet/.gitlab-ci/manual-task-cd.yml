@@ -1,0 +1,98 @@
+.deploy_job: &deploy_def
+  tags:
+  - production-cd
+  image:
+    name: $GITLAB_REGISTRY/helm_deploy:latest
+  before_script:
+  - mkdir /root/.ssh
+  - echo $SSH | base64 -d > /root/.ssh/id_rsa
+  - chmod 600 /root/.ssh/id_rsa
+  - ssh-keyscan -t rsa github.com >> /root/.ssh/known_hosts
+  - mv $APP_CONFIG_PATH app-config.yaml
+  - git clone --depth=1 git@github.com:hashlab/infra.git
+  - kubectl create ns $NAMESPACE 2>/dev/null || true
+  - kubectl label namespace $NAMESPACE istio-injection=enabled --overwrite
+  - kubectl apply -n $NAMESPACE -f app-config.yaml
+
+runner:manual-task:
+  stage: Manual Task
+  <<: *deploy_def
+  script: |-
+    echo -e "\n--> Deploying $NAMESPACE/$RUNNER_TASK\n"
+    kubectl delete job -n $NAMESPACE $RUNNER_TASK 2> /dev/null || true
+    TASK_PARAMS_SET="--set job.env.TASK_PARAMS=${TASK_PARAMS}"
+    if [ -z $TASK_PARAMS ]; then
+      TASK_PARAMS_SET=
+    fi
+    helm template app infra/charts/generic \
+        --set logoutput.enabled=false \
+        --set environmentType=production \
+        --set job.name=$RUNNER_TASK \
+        --set job.backoffLimit=0 \
+        --set job.ttlSecondsAfterFinished=172800 \
+        --set job.image=$REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA \
+        --set job.env.APPLICATION_TYPE=Runner \
+        --set job.env.NODE_ENV="production" \
+        --set job.env.TASK=$RUNNER_TASK \
+        $TASK_PARAMS_SET \
+        --set job.env.TASK_ENABLED="true" \
+        --set job.env.TASK_PARAMS=$TASK_PARAMS \
+        --set job.env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set job.env.MONGODB_SOCKET_TIMEOUT=240000 \
+        --set job.env.ISTIO_QUIT_SIDECAR="true" \
+        --set job.env.ISTIO_WAIT_SIDECAR="true" \
+        --set job.envFrom.secretRef[0]=app-core-config \
+        --set job.envFrom.secretRef[1]=app-cloudwalk-config \
+        --set job.envFrom.secretRef[2]=app-celer-config \
+        --set job.envFrom.secretRef[3]=app-pags-config \
+        --set job.envFrom.secretRef[4]=app-stone-config \
+        --set job.envFrom.secretRef[5]=app-se-config \
+        --set job.resources.limitsCPU=1000m \
+        --set job.resources.limitsMemory=2Gi \
+        --set job.resources.requestsCPU=20m \
+        --set job.resources.requestsMemory=512Mi | kubectl -n $NAMESPACE apply -f -
+  environment:
+    name: production
+  only:
+    variables:
+      - $RUNNER_TASK
+
+sandbox:runner:manual-task:
+  stage: Manual Task
+  <<: *deploy_def
+  variables:
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n--> Deploying $NAMESPACE/$RUNNER_TASK_SANDBOX\n"
+    kubectl delete job -n $NAMESPACE $RUNNER_TASK_SANDBOX 2> /dev/null || true
+    TASK_PARAMS_SET="--set job.env.TASK_PARAMS=${TASK_PARAMS}"
+    if [ -z $TASK_PARAMS ]; then
+      TASK_PARAMS_SET=
+    fi
+    helm template app infra/charts/generic \
+        --set logoutput.enabled=false \
+        --set environmentType=staging \
+        --set job.name=$RUNNER_TASK_SANDBOX \
+        --set job.backoffLimit=0 \
+        --set job.ttlSecondsAfterFinished=172800 \
+        --set job.image=$REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA \
+        --set job.env.APPLICATION_TYPE=Runner \
+        --set job.env.NODE_ENV="production" \
+        --set job.env.TASK=$RUNNER_TASK_SANDBOX \
+        $TASK_PARAMS_SET \
+        --set job.env.TASK_ENABLED="true" \
+        --set job.env.TASK_PARAMS=$TASK_PARAMS \
+        --set job.env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set job.env.MONGODB_SOCKET_TIMEOUT=240000 \
+        --set job.env.ISTIO_QUIT_SIDECAR="true" \
+        --set job.env.ISTIO_WAIT_SIDECAR="true" \
+        --set job.envFrom.secretRef[0]=app-core-config-sandbox \
+        --set job.resources.limitsCPU=1000m \
+        --set job.resources.limitsMemory=1024Mi \
+        --set job.resources.requestsCPU=20m \
+        --set job.resources.requestsMemory=512Mi | kubectl -n $NAMESPACE apply -f -
+  environment:
+    name: sandbox
+  only:
+    variables:
+      - $RUNNER_TASK_SANDBOX

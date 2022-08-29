@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "baseUrl": "./",
+    "paths": {
+      "application": ["src/application/*"],
+      "framework": ["src/framework/*"]
+    }
+  },
+  "exclude": ["node_modules", "build"]
+}

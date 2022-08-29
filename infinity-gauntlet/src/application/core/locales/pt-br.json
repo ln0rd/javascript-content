@@ -1,0 +1,318 @@
+{
+  "endpoints": {
+    "root": {
+      "name": "Hash API",
+      "message": "Bem-vindo(a) a nossa API.",
+      "documentation": "https://docs.hash.com.br"
+    },
+    "queue": {
+      "message": "A requisição para registrar essa transação foi enviada."
+    },
+    "invite": {
+      "user_already_belong_to_company": "Esse usuário já existe nessa company"
+    }
+  },
+  "services": {
+    "app_key": {
+      "message": "App key foi revogada com sucesso."
+    },
+    "jwt": {
+      "account": "conta"
+    }
+  },
+  "models": {
+    "test": "Test Model",
+    "affiliation": "Afiliação",
+    "spot_anticipation": "Antecipação pontual",
+    "transaction": "Transação",
+    "user": "Usuário",
+    "company": "Cadastro",
+    "hardware": "Máquina",
+    "payable": "Recebível",
+    "payout": "Payout",
+    "payin": "Payin",
+    "fee_rule": "Regra de pricing",
+    "settlement": "Liquidação",
+    "provider": "Provedor",
+    "charge_configuration": "Configuração de cobrança",
+    "charge": "Cobrança",
+    "mcc": "MCC",
+    "wallet": "Carteira",
+    "wallet_transfer": "Transferência entre carteiras",
+    "app_key": "App Key",
+    "integration_credential": "Credencial de Integração",
+    "integration_config": "Configuração de Integração",
+    "hashboard": "Hashboard",
+    "hashboardDeployment": "Deployment da Hashboard",
+    "hashboardDistribution": "Distribuição da Hashboard",
+    "webhook_event": "WebHook Event",
+    "webhook_delivery": "WebHook Delivery",
+    "registered_event": "Evento registrado",
+    "event_handler": "Handler de evento",
+    "event_source": "Fonte de evento",
+    "triggered_event": "Evento",
+    "brand": "Bandeira",
+    "bank": "Banco"
+  },
+  "sms": {
+    "recovery_code": "Recuperação de senha {{companyName}}:\nSeu código de recuperação é {{code}}.",
+    "password_reset": "Recuperação de senha {{companyName}}:\nSua nova senha é {{password}}.",
+    "password_reset_v2": "Para redefinir sua senha, {{companyName}}, acesse {{{link}}}. Link válido por 4 horas.",
+    "password_create": "Para cadastrar sua senha, {{companyName}}, acesse {{{link}}}. Link válido por 4 horas.",
+    "anticipation_confirmed": "Antecipacao: \nSeu pedido foi recebido, em breve enviaremos uma confirmacao.",
+    "anticipation_failed": "Antecipacao: \nNao foi possivel realizar a sua antecipacao. Entre em contato para mais informacoes.",
+    "anticipation_anticipated": "Antecipacao: \nSeu pedido de antecipacao foi aceito e realizamos sua antecipacao com sucesso."
+  },
+  "mailer": {
+    "greetings": "Olá, %s.",
+    "activation": "Bem-vindo a %s",
+    "stone_register_hardware": {
+      "subject": "[HashLab][Sub Whitelabel] Ativar POS para %s"
+    },
+    "user_reset_password": {
+      "subject": "Nova senha",
+      "support_team": "time de suporte",
+      "support_contact": "contato"
+    },
+    "leomadeiras_integration": {
+      "subject": "[HashLab][Erro SAP] Erro SAP - Nota de crédito - Venda #%s"
+    },
+    "conciliation_file": {
+      "sales": {
+        "name": "vendas",
+        "subject": "Relatório de vendas - Leozinha - {{sapCode}} - {{date}}"
+      },
+      "settlements": {
+        "name": "pagamentos",
+        "subject": "Relatório de pagamentos - Leozinha - {{sapCode}} - {{date}}"
+      }
+    }
+  },
+  "errors": {
+    "handlers": {
+      "default": "Um erro aconteceu durante a requisição. Tente novamente.",
+      "not_found": "Url inválida.",
+      "unauthorized":
+        "Não autorizado. Verifique se você está usando a %s correta.",
+      "unauthenticated":
+        "Não autenticado. Verifique se você está usando uma %s válida.",
+      "forbidden": "Você não tem permissão para acessar esse recurso.",
+      "bad_request": "Requisição inválida.",
+      "too_many_requests": "Você excedeu o número máximo de requisições por minuto. Tente novamente mais tarde.",
+      "internal_server": "Um erro interno aconteceu. Tente novamente.",
+      "method_not_allowed":
+        "Você está usando um método não suportado para essa url.",
+      "version_not_allowed":
+        "Você está usando uma versão não existente da nossa API.",
+      "unsupported_media_type": "Media não suportada.",
+      "not_implemented": "Não implementado ainda.",
+      "expired_token": "Link inválido. Certifique-se de que este é o link mais recente e que foi gerado há menos de 4 horas."
+    },
+    "validations": {
+      "type_null": "O valor do paramêtro %s precisa ser null.",
+      "type_string": "O valor do paramêtro %s precisa ser uma string.",
+      "type_boolean": "O valor do paramêtro %s precisa ser um boolean.",
+      "type_number": "O valor do paramêtro %s precisa ser um número.",
+      "type_integer": "O valor do paramêtro %s precisa ser um número inteiro.",
+      "type_object": "O valor do paramêtro %s precisa ser um objeto.",
+      "type_array": "O valor do paramêtro %s precisa ser um array.",
+      "type_date": "O valor do paramêtro %s precisa ser uma data.",
+      "format": "O formato do paramêtro %s é inválido.",
+      "read_only": "O valor do paramêtro %s é apenas leitura.",
+      "minimum": "O valor do paramêtro %s é menor que o mínimo requerido.",
+      "maximum": "O valor do paramêtro %s é maior que o máximo requerido.",
+      "multiple_off": "O valor do paramêtro %s não é um multiplo.",
+      "pattern":
+        "O valor do paramêtro %s não deu match com a expressão regular.",
+      "min_length": "O valor do paramêtro %s é menor que o tamanho mínimo.",
+      "max_length": "O valor do paramêtro %s é maior que o tamanho máximo.",
+      "min_items":
+        "O número de items do paramêtro %s é menor que o mínimo requerido.",
+      "max_items":
+        "O número de items do paramêtro %s é maior que o máximo requerido.",
+      "unique_items": "O valor dos items do paramêtro %s precisam ser únicos.",
+      "min_properties":
+        "O número de propriedades do paramêtro %s é menor que o mínimo requerido.",
+      "max_properties":
+        "O número de propriedades do paramêtro %s é maior que o máximo requerido.",
+      "constant": "O valor do paramêtro %s é precisa ser constante.",
+      "enum": "O valor do paramêtro %s é inválido.",
+      "required": "O paramêtro %s é obrigatório.",
+      "default": "O paramêtro %s não é válido."
+    },
+    "cannot_update_user": "Sem permissão para conceder acesso.",
+	"cannot_invite_user": "Sem permissão para conceder nível de acesso mais privilegiado que o próprio nível de acesso.",
+    "user_must_be_iso_member": "A company deve ser do mesmo ISO.",
+    "invalid_parameter": "O parâmetro '%s' está inválido.",
+    "required_parameter": "O parâmetro '%s' é obrigatório.",
+    "auth_mode_required":
+      "Para acessar esse recurso você precisar usar uma '%s'.",
+    "model_not_found": "%s não existe.",
+    "event_already_delivered": "Evento já entregue.",
+    "pagination": "O paramêtro count não pode ser maior que %s.",
+    "email_not_delivered": "Email não enviado: %s",
+    "search":
+      "Ocorreu um erro ao fazer a busca, revise sua query e tente novamente.",
+    "delay": "Essa operação será retentada mais tarde.",
+    "register_transaction_task":
+      "Ocorreu um erro ao registrar a transação na fila com o worker: %s",
+    "create_payables_task": "Erro criando payables: $s",
+    "invalid_provider": "O provider '%s' não é um provider válido.",
+    "provider_not_allowed": "Provider '%s' não permitido.",
+    "generic_provider": "Um erro interno aconteceu no provider '%s'.",
+    "generic_integration": "Um erro interno aconteceu na integração com '%s'.",
+    "external_webhook_generic": "Um erro interno ocorreu ao processar um webhook externo  do(a) %s.",
+    "invalid_integration": "A integração '%s' não é um integrador válido.",
+    "stone_generic_affiliation":
+      "Ocorreu um erro ao afiliar a company no provider stone: %s",
+    "stone_generic_refund":
+      "Ocorreu um erro ao cancelar a transação no provider: %s",
+    "stone_affiliation": "%s",
+    "stone_get_affiliation":
+      "Ocorreu um erro ao buscar afiliação no provider stone.",
+    "stone_required_affiliation_key": "Chave de afiliação está faltando.",
+    "stone_get_transaction":
+      "Ocorreu um erro ao buscar a transação no provider stone.",
+    "stone_get_hardware":
+      "Ocorreu um erro ao buscar o hardware no provider stone.",
+    "stone_process_payable_refund":
+      "Ocorreu um erro ao processar o cancelamento da internal transfer.",
+    "stone_internal_transfer_request_not_found":
+      "Internal Transfer Request não encontrada no provider stone.",
+    "stone_create_security_key":
+      "Ocorreu um erro ao tentar criar a security key no provider stone.",
+    "hashlab_charge_config_task_error":
+      "Ocorreu um erro ao tentar gerenciar as configurações de cobrança: %s",
+    "stone_internal_transfers_task":
+      "Ocorreu um erro ao processar as transferências internas de transações: $s",
+    "celer_generic_error":
+      "Ocorreu um erro um erro ao contatar o provedor Celer: %s",
+    "celer_communication_failure_error":
+      "Ocorreu um erro ao se autenticar ao provedor Celer.",
+    "celer_unable_to_create_merchant":
+      "Ocorreu um erro ao cadastrar os dados da company no provedor Celer",
+    "celer_unable_to_create_terminal":
+      "Ocorreu um erro ao cadastrar os dados do terminal no provedor Celer",
+    "celer_unable_to_link_terminal":
+      "Ocorreu um erro ao associar o Terminal a Company no provedor Celer",
+    "celer_unable_to_unlink_terminal":
+      "Ocorreu um erro ao desassociar o Terminal da Company no provedor Celer",
+    "celer_terminal_already_linked":
+      "O terminal com esse serial já está associado a outra Company no provedor Celer",
+    "celer_no_terminal_found": "Terminal não encontrado no provedor Celer.",
+    "celer_unable_to_list_transactions":
+      "Não foi possível consultar as transações no provedor Celer",
+    "celer_unable_to_get_merchant_data":
+      "Não foi possível consultar dados dessa Company no provedor Celer",
+    "celer_unable_to_get_terminal_data":
+      "Não foi possível consultar dados desse Terminal no provedor Celer",
+    "ecommerce_capture_method_not_allowed":
+      "Não foi permitido inserir 'ecommerce' como método de captura. boleto_pricing não foi configurado corretamente.",
+    "stone_charges_transfer_task":
+      "Ocorreu um erro ao criar transferência para a cobrança no provider stone: %s",
+    "stone_transaction_canceled":
+      "Transação cancelada por um erro de fluxo na task.",
+    "stone_active_affiliation_watcher_task":
+      "Ocorreu um erro ao tentar buscar a affiliation ativa no provider stone: %s",
+    "stone_affiliation_not_changed":
+      "O status da afiliação no provider stone não foi atualizado.",
+    "invalid_session_parameters": "Email, cpf, cnpj ou telefone é necessário.",
+    "invalid_credentials": "Usuário ou senha inválidos. %s.",
+    "user_blocked": "Usuário bloqueado por %s.",
+    "user_not_active": "Usuário não está ativo.",
+    "user_already_active": "Usuário já está ativo.",
+    "user_not_belong_to_company": "Usuário não pertence a essa empresa.",
+    "company_not_belong_to_parent": "company_id não pertence a esse parent.",
+    "company_hierarchy_editing": "Usuário %s já está editando a hierarquia.",
+    "company_hierarchy_not_editing": "Você não está editando essa hierarquia.",
+    "company_status_pending" : "Cadastro em análise de risco.",
+    "company_status_rejected" : "Cadastro recusado.",
+    "company_status_canceled" : "Cadastro cancelado.",
+    "company_status_blocked" : "Cadastro bloqueado.",
+    "company_status_revoked" : "Cadastro revogado.",
+    "company_status_inactive" : "Cadastro inativo.",
+    "charge_already_processed": "Charge já processada não pode ser cancelada.",
+    "disable_software_provider":
+      "Erro ao desabilitar hardware no provider '%s'.",
+    "invalid_company_metadata": "'company_metadata' não é um objeto válido.",
+    "invalid_user_metadata": "'user_metadata' não é um objeto válido.",
+    "invalid_user_validation_status": "Usuário está com estado de validação inválido para esta operação.",
+    "invalid_initial_charge_date": "Data inicial de cobrança não é válida.",
+    "invalid_charge_date": "Data de cobrança não é válida.",
+    "invalid_charge_amount_type": "O valor do paramêtro amount precisa ser inteiro.",
+    "process_charge_on_provider":
+      "Cobrança não pôde ser executada no provider.",
+    "fee_rule_already_exists": "Regra de pricing já cadastrada.",
+    "permission_resource_not_found": "Recurso da permissão não encontrado.",
+    "permission_resource_not_allowed": "Operação não permitida.",
+    "permission_not_found": "Permissão não encontrada",
+    "mcc_already_exists": "MCC já cadastrado.",
+    "user_email_already_exists": "E-mail já cadastrado.",
+    "serial_number_already_exists": "Serial já cadastrado.",
+    "child_company_already_exists":
+      "Já existe um cadastro com esse número de documento.",
+    "transaction_already_exists": "Transação já existente.",
+    "affiliation_already_exists": "Afiliação já existente.",
+    "affiliation_disabled": "Afiliação desabilitada. %s",
+    "anticipation_type_update_not_allowed":
+      "Alteração do tipo de antecipação não permitida",
+    "transaction_not_refunded_on_provider":
+      "Transação não está cancelada no provider de pagamento",
+    "transaction_provider_refund":
+      "Ocorreu um erro ao cancelar a transação no provider",
+    "refund_transaction_not_paid":
+      "Não é possível cancelar uma transação que não está paga.",
+    "invalid_wallet_amount":
+      "Valor disponível na wallet inválido ou menor que zero.",
+    "invalid_split_rule_amount": "split_rule com inconsistência no amount.",
+    "invalid_split_rule_percentage":
+      "split_rule com inconsistência no percentage.",
+    "invalid_split_rule_company_id":
+      "split_rule só poder conter Companies diferentes a atual.",
+    "invalid_charge_processing_cost":
+      "algum split_rule deve ser responsável pelo charge_processing_cost.",
+    "wallet_transfer": "Erro ao processar sua transferência.",
+    "wallet_transfer_not_enough_funds": "Saldo insuficiente na carteira: R$%s",
+    "wallet_transfer_not_authorized":
+      "Você não tem permissão para movimentar saldo dessa carteira.",
+    "wallet_revert_transfer": "Erro ao tentar reverter a transação %s.",
+    "wallet_revert_transfer_max_attempts":
+      "Erro ao tentar reverter a transação %s. Número máximo de tentativas excedido.",
+    "wallet_schedule_transfer_invalid_date":
+      "Data inválida para agendamento de transferência.",
+    "anticipation_invalid_date": "A data da antecipação deve estar no futuro.",
+    "anticipation_invalid_business_date":
+      "A data da antecipação deve ser um dia útil.",
+    "anticipation_business_hours":
+      "Antecipação fora da janela de operação. Tente novamente em dias úteis entre 09:00 e 20:00.",
+    "anticipation_pending_exists":
+      "Não é possível concluir essa operação pois já existe uma antecipação em processamento.",
+    "spot_anticipation": "Erro ao processar a antecipação pontual.",
+    "anticipation_not_enough_funds":
+      "Você não tem saldo suficiente para antecipar o valor solicitado.",
+    "spot_anticipation_revert":
+      "Erro ao tentar reverter a antecipação pontual.",
+    "spot_anticipation_revert_max_attempts":
+      "Erro ao tentar reverter a antecipação pontual. Número máximo de tentativas excedido.",
+    "hashboard_url_already_exists_error": "Essa URL já está cadastrada.",
+    "event_handler_not_enabled_error":
+      "Não há handlers ativos para esse evento.",
+    "event_source_not_enabled_error":
+      "Fonte de eventos está desativada: %s",
+    "triggered_event_version_mismatch_error":
+      "Versão incompatível do handler: %s",
+    "trigger_event_error": "Erro ao disparar evento.",
+    "triggered_event_max_retries_error":
+      "Erro ao tentar disparar o evento. Número máximo de tentativas excedido.",
+    "payout_invalid_business_date_error":
+      "Payouts são processados somente em dias úteis.",
+    "event_handler_not_found_error": "Não foram encontrados handlers para esse evento.",
+    "event_source_not_found_error": "Fonte de eventos não encontrada: %s.",
+    "document_number_not_same": "O número de documento informado deve ser o mesmo do cadastro",
+    "invalid_document_number": "O número de documento %s é inválido",
+    "conciliation_error": "Erro ao buscar arquivos de conciliação.",
+    "validation_payout_already_exists": "Payout de validação já existe e está pendente.",
+    "invalid_hardware_serial_number": "O número serial não corresponde ao modelo de hardware informado.",
+    "user_did_not_do_first_access": "O usuário precisa fazer o primeiro acesso via link \"novo acesso\" na Hashboard."
+  }
+}

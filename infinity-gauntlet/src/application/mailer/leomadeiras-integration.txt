@@ -1,0 +1,13 @@
+Olá, time Leo! Como estão?
+
+Houve um erro no envio de uma nota de crédito. Abaixo os dados enviados e recebidos:
+
+Request enviado:
+
+{{ response.integration_body|safe }}
+
+Resposta recebida:
+
+{{ response.integration_response|safe }}
+
+Abraços!

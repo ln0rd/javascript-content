@@ -1,0 +1,1402 @@
+.deploy_job: &deploy_def
+  tags:
+  - production-cd
+  image:
+    name: $GITLAB_REGISTRY/helm_deploy:latest
+  before_script:
+  - mkdir /root/.ssh
+  - echo $SSH | base64 -d > /root/.ssh/id_rsa
+  - chmod 600 /root/.ssh/id_rsa
+  - ssh-keyscan -t rsa github.com >> /root/.ssh/known_hosts
+  - mv $APP_CONFIG_PATH app-config.yaml
+  - git clone --depth=1 git@github.com:hashlab/infra.git
+  - kubectl create ns $NAMESPACE 2>/dev/null || true
+  - kubectl label namespace $NAMESPACE istio-injection=enabled --overwrite
+  - kubectl apply -n $NAMESPACE -f app-config.yaml
+
+worker:mailer:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    APP_NAME: mailer
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$APP_NAME \
+        --set env.TASK_ENABLED="true" \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=64Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.mailer
+      when: manual
+
+worker:slacker:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    APP_NAME: slacker
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$APP_NAME \
+        --set env.TASK_ENABLED="true" \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=64Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.slacker
+      when: manual
+
+#####################################
+# Payouts / Payables / Receivables ##
+#####################################
+
+scheduler:periodic-execute-payouts:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: periodic-execute-payouts
+    APP_NAME: payouts-execute
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set strategyType=Recreate \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Scheduler \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set env.MAX_CONCURRENT_PAYOUTS=4 \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=1000m \
+        --set resources.limits.memory=2Gi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=128Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.payouts
+      when: manual
+
+sandbox:scheduler:periodic-execute-payouts:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: periodic-execute-payouts
+    APP_NAME: payouts-execute
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=staging \
+        --set replicaCount=1 \
+        --set strategyType=Recreate \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Scheduler \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set env.MAX_CONCURRENT_PAYOUTS=4 \
+        --set envFrom.secretRef[0]=app-core-config-sandbox \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=1Gi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=128Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: sandbox
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.payouts
+      when: manual
+
+scheduler:periodic-process-settlements:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: periodic-process-settlements
+    APP_NAME: process-settlements
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set strategyType=Recreate \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Scheduler \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$SETTLEMENT_MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=4000Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=2000Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.settlements
+      when: manual
+
+sandbox:scheduler:periodic-process-settlements:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: periodic-process-settlements
+    APP_NAME: process-settlements
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=staging \
+        --set replicaCount=1 \
+        --set strategyType=Recreate \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Scheduler \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config-sandbox \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=1024Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=256Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: sandbox
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.settlements
+      when: manual
+
+worker:create-validation-payout:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: create-validation-payout
+    APP_NAME: payouts-create-validations
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=96Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.payouts
+      when: manual
+
+sandbox:worker:create-validation-payout:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: create-validation-payout
+    APP_NAME: payouts-create-validations
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=staging \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config-sandbox \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=96Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: sandbox
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+        - deploy/worker.payouts
+      when: manual
+
+worker:create-payables:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: create-payables
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$TASK_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=96Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.payables
+      when: manual
+
+worker:register-dispute:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: register-dispute
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$TASK_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=64Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.dispute
+      when: manual
+
+worker:accounting-events-new-transaction:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: accounting-events-new-transaction
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$TASK_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=512Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=256Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.accounting-transactions
+      when: manual
+
+worker:accounting-events-new-settlement:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: accounting-events-new-settlement
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$TASK_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=512Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=256Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.accounting-settlement
+      when: manual
+
+worker:accounting-events-new-anticipation:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: accounting-events-new-anticipation
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$TASK_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=512Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=256Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+        - deploy/worker.accounting-events-new-anticipation
+      when: manual
+
+
+#####################################
+# Anticipation Workloads ############
+#####################################
+
+worker:notify-anticipation-status:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: notify-anticipation-status
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$TASK_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=64Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.notify-anticipation
+      when: manual
+
+worker:spot-anticipation:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: spot-anticipation
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$TASK_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Worker \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=256Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=128Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.spot-anticipation
+      when: manual
+
+scheduler:periodic-request-anticipation-authorization:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: periodic-request-anticipation-authorization
+    APP_NAME: request-anticipation-authorization
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=512Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=128Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.anticipation-authorization
+      when: manual
+
+scheduler:periodic-process-anticipations:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: periodic-process-anticipations
+    APP_NAME: process-anticipations
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=512Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=128Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.process-anticipations
+      when: manual
+
+#####################################
+# Anticipation Workloads - SANDBOX ##
+#####################################
+
+sandbox:periodic-request-anticipation-authorization:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: periodic-request-anticipation-authorization
+    APP_NAME: request-anticipation-authorization
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=staging \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config-sandbox \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=512Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=128Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: sandbox
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+        - deploy/scheduler.anticipation-authorization
+      when: manual
+
+sandbox:periodic-process-anticipations:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: periodic-process-anticipations
+    APP_NAME: process-anticipations
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=staging \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config-sandbox \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=512Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=128Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: sandbox
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+        - deploy/scheduler.process-anticipations
+      when: manual
+
+#####################################
+# DISPUTE SANDBOX  ##################
+#####################################
+sandbox:worker:register-dispute:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: register-dispute
+    APP_NAME: register-dispute-worker
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$TASK_NAME \
+        --set environmentType=staging \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config-sandbox \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=64Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: sandbox
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.dispute
+      when: manual
+
+sandbox:worker:accounting-events-new-transaction:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: accounting-events-new-transaction
+    APP_NAME: accounting-events-new-transaction-worker
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$TASK_NAME \
+        --set environmentType=staging \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$TASK_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config-sandbox \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=64Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: sandbox
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.accounting-events-new-transaction
+      when: manual
+
+
+#####################################
+# Bank Task Schedulers ##############
+#####################################
+
+scheduler:bank-account-activation-periodic-async:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: bank-account-activation-periodic-async
+    APP_NAME: bank-acc-activation-async
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=256Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=64Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.bank-account-activation-periodic-async
+      when: manual
+
+sandbox:scheduler:bank-account-activation-periodic-async:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: bank-account-activation-periodic-async
+    APP_NAME: bank-acc-activation-async
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=staging \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config-sandbox \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=256Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=64Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: sandbox
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+        - deploy/scheduler.bank-account-activation-periodic-async
+      when: manual
+
+scheduler:wallet-scheduled-transfer-non-business:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: wallet-scheduled-transfer-non-business
+    APP_NAME: wallet-transfer
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=256Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=96Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.wallet-scheduled-transfer-non-business
+      when: manual
+
+#####################################
+# Conciliation Workloads ##############
+#####################################
+
+scheduler:conciliate-settlements-periodic:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: conciliate-settlements-periodic
+    APP_NAME: conciliate-settlements
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set env.LEO_MASTER=5cf141b986642840656717f0 \
+      --set env.MONGODB_SOCKET_TIMEOUT=600000 \
+      --set env.MONGODB_CONNECTION_TIMEOUT=600000 \
+      --set env.DISABLED_DATABASES=rabbitmq \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=384Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=128Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.conciliate-settlements-periodic
+      when: manual
+
+scheduler:conciliate-sales-periodic:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: conciliate-sales-periodic
+    APP_NAME: conciliate-sales
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set env.LEO_MASTER=5cf141b986642840656717f0 \
+      --set env.MONGODB_SOCKET_TIMEOUT=600000 \
+      --set env.MONGODB_CONNECTION_TIMEOUT=600000 \
+      --set env.DISABLED_DATABASES=rabbitmq \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=256Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=128Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.conciliate-sales-periodic
+      when: manual
+
+scheduler:generate-conciliation-csv-file-periodic:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: generate-conciliation-csv-file-periodic
+    APP_NAME: conciliation-csv
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set env.LEO_MASTER=5cf141b986642840656717f0 \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=256Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=96Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.generate-conciliation-csv-file-periodic
+      when: manual
+
+#####################################
+# Transactions Workloads ############
+#####################################
+
+worker:register-transaction:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: register-transaction
+    APP_NAME: register-trx
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Worker \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set env.RABBITMQ_PREFETCH_COUNT=1 \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set envFrom.secretRef[1]=app-cloudwalk-config \
+      --set envFrom.secretRef[2]=app-celer-config \
+      --set envFrom.secretRef[3]=app-pags-config \
+      --set envFrom.secretRef[4]=app-stone-config \
+      --set envFrom.secretRef[5]=app-se-config \
+      --set resources.limits.cpu=200m \
+      --set resources.limits.memory=512Mi \
+      --set resources.requests.cpu=100m \
+      --set resources.requests.memory=256Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.register-transaction
+      when: manual
+
+worker:assign-portfolio-to-transaction:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    APP_NAME: assign-portfolio-to-transaction
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Worker \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$APP_NAME \
+      --set env.TASK_ENABLED="true" \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set envFrom.secretRef[1]=app-cloudwalk-config \
+      --set envFrom.secretRef[2]=app-celer-config \
+      --set envFrom.secretRef[3]=app-pags-config \
+      --set envFrom.secretRef[4]=app-stone-config \
+      --set envFrom.secretRef[5]=app-se-config \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=128Mi \
+      --set resources.requests.cpu=10m \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" \
+      --set resources.requests.memory=64Mi | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.assign-portfolio-to-transaction
+      when: manual
+
+worker:send-settlements-webhook:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    APP_NAME: send-settlements-webhook
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$APP_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=1000Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=500Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+        - deploy/worker.send-settlements-webhook
+      when: manual
+
+sandbox:worker:send-settlements-webhook:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    APP_NAME: send-settlements-webhook
+    NAMESPACE: ig-core-dev
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+        --set environment=$APP_NAME \
+        --set environmentType=production \
+        --set replicaCount=1 \
+        --set image.repository=$REGISTRY_IMAGE \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.APPLICATION_TYPE=Worker \
+        --set env.NODE_ENV=production \
+        --set env.TASK=$APP_NAME \
+        --set env.TASK_ENABLED=true \
+        --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+        --set envFrom.secretRef[0]=app-core-config-sandbox \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=256Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=128Mi \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set livenessProbe.typeProbe="exec" \
+        --set livenessProbe.commands[0]="script/check-health" \
+        --set readinessProbe.typeProbe="exec" \
+        --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: sandbox
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+        - deploy/worker.send-settlements-webhook
+      when: manual
+
+#####################################
+# Generic Workloads #################
+#####################################
+
+scheduler:hashlab-charge-config:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: hashlab-charge-config
+    APP_NAME: charge-config
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$APP_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set strategyType=Recreate \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Scheduler \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=256Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=128Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$APP_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/scheduler.hashlab-charge-config
+      when: manual
+
+worker:handle-triggered-event:
+  stage: App Deploy
+  <<: *deploy_def
+  variables:
+    TASK_NAME: handle-triggered-event
+  script: |-
+    echo -e "\n - Deploying $NAMESPACE/$TASK_NAME \n"
+    helm template app infra/charts/generic \
+      --set environment=$TASK_NAME \
+      --set environmentType=production \
+      --set replicaCount=1 \
+      --set image.repository=$REGISTRY_IMAGE \
+      --set image.tag=$CI_COMMIT_SHORT_SHA \
+      --set env.APPLICATION_TYPE=Worker \
+      --set env.NODE_ENV=production \
+      --set env.TASK=$TASK_NAME \
+      --set env.TASK_ENABLED=true \
+      --set env.IG_MAX_OLD_SPACE_WORKER=$MAX_OLD_SPACE_WORKER \
+      --set envFrom.secretRef[0]=app-core-config \
+      --set resources.limits.cpu=100m \
+      --set resources.limits.memory=256Mi \
+      --set resources.requests.cpu=10m \
+      --set resources.requests.memory=128Mi \
+      --set container.securityContext.readOnlyRootFilesystem=true \
+      --set livenessProbe.typeProbe="exec" \
+      --set livenessProbe.commands[0]="script/check-health" \
+      --set readinessProbe.typeProbe="exec" \
+      --set readinessProbe.commands[0]="script/check-health" | kubectl -n $NAMESPACE apply -f -
+    kubectl rollout status -n $NAMESPACE deployment/$TASK_NAME
+  environment:
+    name: production
+  rules:
+    - if: $RUNNER_TASK
+      when: never
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      changes:
+      - deploy/worker.handle-triggered-event
+      when: manual

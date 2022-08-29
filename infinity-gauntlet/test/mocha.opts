@@ -1,0 +1,8 @@
+--timeout 2000
+--reporter spec
+--ui bdd
+--require module-alias/register
+--require babel-register
+--require test/setup
+--bail
+--exit

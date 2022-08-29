@@ -1,0 +1,29 @@
+#!/usr/bin/env sh
+
+set -e
+
+if [ $NODE_ENV != "production" ]
+  then
+    script/build
+fi
+
+case $APPLICATION_TYPE in
+  "Api")
+    exec node --max_old_space_size=$IG_MAX_OLD_SPACE_API --gc_interval=100 build/bootstrap.js "api"
+  ;;
+  "Runner")
+    exec node --max_old_space_size=$IG_MAX_OLD_SPACE_RUNNER --gc_interval=100 build/bootstrap.js "runner"
+  ;;
+  "Scheduler")
+    exec node --max_old_space_size=$IG_MAX_OLD_SPACE_SCHEDULER --gc_interval=100 build/bootstrap.js "scheduler"
+  ;;
+  "WebHook")
+    exec node --max_old_space_size=$IG_MAX_OLD_SPACE_WEBHOOK --gc_interval=100 build/bootstrap.js "webhook"
+  ;;
+  "Worker")
+    exec node --max_old_space_size=$IG_MAX_OLD_SPACE_WORKER --gc_interval=100 build/bootstrap.js "worker"
+  ;;
+  *)
+    echo "Invalid APPLICATION_TYPE"
+  ;;
+esac

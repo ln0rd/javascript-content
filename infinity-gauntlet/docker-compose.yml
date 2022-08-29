@@ -1,0 +1,154 @@
+version: "3"
+services:
+  mongo:
+    image: "mongo:4.0.24-xenial"
+    command: mongod --smallfiles
+    volumes:
+      - "./tmp/db:/data/db"
+    ports:
+      - "27017:27017"
+  rabbit:
+    image: "rabbitmq:3.6.5-management"
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: pass
+      RABBITMQ_DEFAULT_VHOST: rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  redis:
+    image: "redis:4.0.12"
+    ports:
+      - "6379:6379"
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    stop_signal: SIGTERM
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    environment:
+      WAIT_HOSTS: mongo:27017, rabbit:5672, redis:6379
+      APPLICATION_TYPE: "Api"
+    volumes:
+      - ./src:/home/node/src
+      - ./script:/home/node/script
+      - ./test:/home/node/test
+    depends_on:
+      - mongo
+      - rabbit
+      - redis
+  dry-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    stop_signal: SIGTERM
+    env_file:
+      - .env
+    environment:
+      WAIT_HOSTS: mongo:27017, rabbit:5672
+      APPLICATION_TYPE: "Dry Runner"
+      TASK: manual-example
+    volumes:
+      - ./src:/home/node/src
+      - ./script:/home/node/script
+      - ./test:/home/node/test
+    depends_on:
+      - mongo
+      - rabbit
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    stop_signal: SIGTERM
+    env_file:
+      - .env
+    environment:
+      WAIT_HOSTS: mongo:27017, rabbit:5672
+      APPLICATION_TYPE: "Runner"
+      TASK: manual-example
+    volumes:
+      - ./src:/home/node/src
+      - ./script:/home/node/script
+      - ./test:/home/node/test
+    depends_on:
+      - mongo
+      - rabbit
+      - redis
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    stop_signal: SIGTERM
+    env_file:
+      - .env
+    environment:
+      WAIT_HOSTS: mongo:27017, rabbit:5672
+      APPLICATION_TYPE: "Scheduler"
+      TASK: periodic-example
+    volumes:
+      - ./src:/home/node/src
+      - ./script:/home/node/script
+      - ./test:/home/node/test
+    depends_on:
+      - mongo
+      - rabbit
+  webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    stop_signal: SIGTERM
+    env_file:
+      - .env
+    environment:
+      WAIT_HOSTS: mongo:27017, rabbit:5672
+      APPLICATION_TYPE: "WebHook"
+    volumes:
+      - ./src:/home/node/src
+      - ./script:/home/node/script
+      - ./test:/home/node/test
+    depends_on:
+      - mongo
+      - rabbit
+      - redis
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    stop_signal: SIGTERM
+    env_file:
+      - .env
+    environment:
+      WAIT_HOSTS: mongo:27017, rabbit:5672
+      APPLICATION_TYPE: "Worker"
+      TASK: triggered-example
+    volumes:
+      - ./src:/home/node/src
+      - ./script:/home/node/script
+      - ./test:/home/node/test
+    depends_on:
+      - mongo
+      - rabbit
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile-dev
+    command: script/test
+    stop_signal: SIGTERM
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: test
+      API_URL: http://api:4000
+      LOG_LEVEL: debug
+      SILENT_MODE: "true"
+      WAIT_HOSTS: api:4000
+      APPLICATION_TYPE: "Test"
+    volumes:
+      - ./src:/home/node/src
+      - ./script:/home/node/script
+      - ./test:/home/node/test
+    depends_on:
+      - api

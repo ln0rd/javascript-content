@@ -1,0 +1,8 @@
+.git
+.env
+.env.*
+.DS_Store
+.editorconfig
+tmp
+node_modules
+npm-debug.log

@@ -1,0 +1,39 @@
+{% extends "layouts/larger.html" %}
+
+{% block preheader %}
+<br/>
+{% endblock %}
+
+{% block content %}
+<div class='movableContent'>
+  <table cellpadding="0" cellspacing="0" border="0" align="center" width="900" class="container">
+    <tr>
+      <td width="1000" align="center">
+        <div class="contentEditableContainer contentTextEditable">
+          <div class="contentEditable" align='left'>
+            <table cellpadding="0" cellspacing="0" border="0" align="center" class="container">
+              {% for message in messages %}
+              <tr>
+                <td width="200">
+                  {{ message.date }}
+                </td>
+                <td width="600" align="center">
+                  {{ message.description }}
+                </td>
+                <td width="100">
+                  {{ message.amount }}
+                </td>
+              </tr>
+              {% endfor %}
+            </table>
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
+{% endblock %}
+
+{% block footer %}
+<br/>
+{% endblock %}

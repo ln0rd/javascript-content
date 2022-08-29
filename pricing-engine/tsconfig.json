@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "baseUrl": "./src",
+    "strictNullChecks": true,
+    "target": "ES2019",
+    "module": "CommonJS",
+    "forceConsistentCasingInFileNames": true
+  }
+}

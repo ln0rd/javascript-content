@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+set -e
+
+echo "Waiting 30 seconds for services to start..."
+
+sleep 30
+
+echo "Running integration tests..."
+
+exec node -r dotenv/config ./node_modules/nyc/bin/nyc.js --reporter=text --reporter=text-summary ./node_modules/mocha/bin/mocha --recursive ./test/integration/**/*.spec.js

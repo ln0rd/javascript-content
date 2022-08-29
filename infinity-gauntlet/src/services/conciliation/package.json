@@ -1,0 +1,28 @@
+{
+  "name": "conciliation",
+  "version": "0.1.0",
+  "description": "conciliation service",
+  "main": "index.js",
+  "scripts": {
+    "test": "ava"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hashlab/logger": "^1.0.21-alpha.0",
+    "csv-writer": "^1.5.0",
+    "jjv": "^1.0.2",
+    "moment": "^2.24.0",
+    "moment-timezone": "^0.5.26"
+  },
+  "devDependencies": {
+    "ava": "^2.2.0",
+    "sinon": "^7.4.1"
+  },
+  "ava": {
+    "files": [
+      "!test/data/*",
+      "!test/fixtures/*"
+    ]
+  }
+}

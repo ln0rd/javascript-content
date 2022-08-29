@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+set -e
+
+echo "Running unit tests..."
+
+NODE_ENV=test npx nyc --reporter=text --reporter=text-summary npx mocha --opts=test/mocha-unit.opts "./test/unit/**/*.spec.js"

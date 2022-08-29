@@ -1,0 +1,21 @@
+FROM node:14.17.3-alpine
+
+ARG GITHUB_TOKEN
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
+
+RUN mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app
+
+WORKDIR /home/node/app
+
+COPY .npmrc ./
+COPY package*.json ./
+COPY config ./config
+COPY migrations ./migrations
+
+USER node
+
+RUN npm install
+
+COPY --chown=node:node . .
+
+ENTRYPOINT ["npm", "run", "knex", "--", "migrate:latest"]

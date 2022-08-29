@@ -1,0 +1,1 @@
+Olá! Em anexo, estamos enviando seu relatório de {{ type }} da Leozinha do dia {{ date }}.

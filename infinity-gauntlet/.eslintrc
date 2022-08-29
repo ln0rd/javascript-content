@@ -1,0 +1,36 @@
+{
+  "extends": [
+    "eslint:recommended",
+    "plugin:security/recommended",
+    "plugin:prettier/recommended",
+    "plugin:promise/recommended",
+    "plugin:import/errors",
+    "plugin:import/warnings"
+  ],
+  "plugins": ["import", "prettier", "promise", "security"],
+  "env": {
+    "node": true,
+    "mocha": true,
+    "es6": true
+  },
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaVersion": 9
+  },
+  "rules": {
+    "import/no-unresolved": [0],
+    "import/no-extraneous-dependencies": [0],
+    "import/extensions": [0],
+    "no-use-before-define": [2, "nofunc"],
+    "no-undef": [2],
+    "no-unused-vars": [2],
+    "no-extra-bind": [2],
+    "no-implicit-globals": [2],
+    "prefer-promise-reject-errors": [2],
+    "no-await-in-loop": [2],
+    "no-console": [2],
+    "eqeqeq": [2],
+    "no-eval": [2],
+    "prettier/prettier": [2, { "singleQuote": true, "semi": false }]
+  }
+}

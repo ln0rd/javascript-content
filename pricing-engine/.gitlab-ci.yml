@@ -1,0 +1,108 @@
+variables:
+  ING_DOMAIN: 'ing.$PROJECT_NAME.gcp.hash.com.br'
+  GITLAB_REGISTRY: 'registry.gitlab.com/hashlaborg/infra/images'
+  DEV_NAMESPACE: 'payment-infra-dev'
+
+stages:
+  - Deploy
+  - Migrations
+
+.deploy_job: &deploy_def
+  image:
+    name: $GITLAB_REGISTRY/helm_deploy:latest
+  before_script:
+    - mkdir /root/.ssh
+    - echo $SSH | base64 -d > /root/.ssh/id_rsa
+    - chmod 600 /root/.ssh/id_rsa
+    - ssh-keyscan -t rsa github.com >> /root/.ssh/known_hosts
+    - git clone --depth=1 git@github.com:hashlab/infra.git
+
+dev:migrate-up:deploy:
+  stage: Migrations
+  tags:
+    - production-cd
+  <<: *deploy_def
+  variables:
+    APP_NAME: pricing-engine-migrate
+    NAMESPACE: payment-infra-dev
+  script: |-
+    set -e
+    echo -e "\n - Deploying $NAMESPACE/$APP_NAME \n"
+    kubectl delete job -n $NAMESPACE $APP_NAME || true
+    helm template infra/charts/generic \
+      --set job.name=$APP_NAME \
+      --set job.image=gcr.io/$PROJECT_ID/$APP_NAME:$CI_COMMIT_SHORT_SHA \
+      --set job.podAnnotations.sidecar\\.istio\\.io/inject=false \
+      --set environmentType=staging \
+      --set env.ENVIRONMENT="staging" \
+      --set job.envSecrets.hostname=pricing-engine-dev-db-credentials \
+      --set job.envSecrets.username=pricing-engine-dev-db-credentials \
+      --set job.envSecrets.password=pricing-engine-dev-db-credentials \
+      --set job.env.database="clearing_team" \
+      --set logoutput.enabled=false \
+      --set job.resources.limitsCPU=100m \
+      --set job.resources.limitsMemory=500Mi \
+      --set job.resources.requestsCPU=10m \
+      --set job.resources.requestsMemory=320Mi | kubectl -n $NAMESPACE apply -f -
+    kubectl wait --for=condition=complete --timeout=30s job/$APP_NAME -n $NAMESPACE || true
+    kubectl logs -n $NAMESPACE -l job-name=$APP_NAME -c job
+  when: manual
+
+dev:deploy:
+  stage: Deploy
+  image: $GITLAB_REGISTRY/helm_deploy:latest
+  tags:
+    - production-cd
+  variables:
+    APP_NAME: pricing-engine
+    HTTP_PORT: '4000'
+  <<: *deploy_def
+  script: |-
+    set -e
+    echo -e "\n#####################################################################"
+    echo -e "\n - DEPLOY $APP_NAME \n"
+    echo -e "\n#####################################################################"
+    helm template infra/charts/generic \
+        --set environment=$APP_NAME-$CI_ENVIRONMENT_SLUG \
+        --set environmentType=staging \
+        --set replicaCount=1 \
+        --set image.repository=gcr.io/$PROJECT_ID/pricing-engine \
+        --set image.tag=$CI_COMMIT_SHORT_SHA \
+        --set env.ISTIO_PROXY_ENABLED="true" \
+        --set env.ENVIRONMENT="staging" \
+        --set envSecrets.hostname=pricing-engine-dev-db-credentials \
+        --set envSecrets.username=pricing-engine-dev-db-credentials \
+        --set envSecrets.password=pricing-engine-dev-db-credentials \
+        --set env.database="clearing_team" \
+        --set env.PORT=$HTTP_PORT \
+        --set resources.limits.cpu=100m \
+        --set resources.limits.memory=500Mi \
+        --set resources.requests.cpu=10m \
+        --set resources.requests.memory=320Mi \
+        --set service.targetPort=$HTTP_PORT \
+        --set service.port=$HTTP_PORT \
+        --set service.enabled=true \
+        --set service.portName=http \
+        --set containerPorts[0].portNumber=$HTTP_PORT \
+        --set containerPorts[0].portName=pricing-engine \
+        --set livenessProbe.typeProbe=httpGet \
+        --set livenessProbe.httpGet.path="/healthz" \
+        --set livenessProbe.httpGet.port=$HTTP_PORT \
+        --set livenessProbe.periodSeconds=60 \
+        --set livenessProbe.initialDelaySeconds=10 \
+        --set readinessProbe.typeProbe=httpGet \
+        --set readinessProbe.httpGet.path="/readiness" \
+        --set readinessProbe.httpGet.port=$HTTP_PORT \
+        --set readinessProbe.periodSeconds=60 \
+        --set readinessProbe.initialDelaySeconds=15 \
+        --set container.securityContext.readOnlyRootFilesystem=true \
+        --set ingress.enabled=true \
+        --set ingress.gateway.credentialName=generic-certs-hash \
+        --set ingress.gateway.hosts=$CI_ENVIRONMENT_SLUG-$APP_NAME.$ING_DOMAIN | kubectl -n $DEV_NAMESPACE apply -f -
+    kubectl rollout status -n $DEV_NAMESPACE deployment/$APP_NAME-$CI_ENVIRONMENT_SLUG
+  environment:
+    name: dev
+    url: https://dev-$APP_NAME.$ING_DOMAIN
+  only:
+    - main
+  when: manual

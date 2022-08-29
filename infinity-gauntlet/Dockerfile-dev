@@ -1,0 +1,23 @@
+FROM node:10.24.1-slim
+LABEL maintainer="devs@hash.com.br"
+ARG GITHUB_TOKEN
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get autoremove -y && \
+    apt-get install -y --no-install-recommends make python tzdata g++ procps && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+ADD https://github.com/krallin/tini/releases/download/v0.19.0/tini /tini
+RUN chmod +x /tini
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/2.5.0/wait /wait
+RUN chmod +x /wait
+USER node
+WORKDIR /home/node
+COPY --chown=node:node . .
+RUN yarn config set workspaces-experimental true && \
+    yarn install && \
+    script/build
+ENV NODE_ENV development
+EXPOSE 4000
+ENTRYPOINT ["/tini", "-g", "--"]
+CMD /wait && script/start

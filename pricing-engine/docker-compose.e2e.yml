@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  postgres_e2e:
+    image: 'postgres:12-alpine'
+    tmpfs:
+      - /data/postgres_e2e
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=pricing-engine
+      - PGDATA=/data/postgres_e2e
+    ports:
+      - '5432:5432'

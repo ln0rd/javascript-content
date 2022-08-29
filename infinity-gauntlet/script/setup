@@ -1,0 +1,43 @@
+#!/usr/bin/env sh
+
+set -e
+
+echo "Preparing environment..."
+
+echo ""
+
+mkdir -p tmp
+
+echo "Creating environment variables..."
+
+cp .env.example.compose .env
+
+echo ""
+
+echo "Installing development dependencies"
+
+npm i -g eslint prettier eslint-plugin-import eslint-plugin-promise eslint-plugin-prettier eslint-config-prettier
+
+yarn install
+
+echo ""
+
+echo "Building docker images..."
+
+echo ""
+
+docker-compose build --build-arg GITHUB_TOKEN=${GITHUB_TOKEN}
+
+echo ""
+
+echo "All done!"
+
+echo ""
+
+echo "Run the command below to get started"
+
+echo ""
+
+echo "
+$ make start
+"

@@ -1,0 +1,7 @@
+Olá, time da Stone! Como estão?
+Gostaria de solicitar a liberação de um POS para o stonecode de um de nossos clientes. Abaixo os dados:
+SerialNumer: {{ hardware.serial_number }}
+Modelo do POS: {{ hardware.terminal_model }}
+StoneCode: {{ affiliation.merchant_id }}
+Desde já, muito obrigado! Abraços!
+PS: Esse é um email automático, mas caso ocorra algum problema, o email joao@hashlab.com.br já está em cópia e pode ser contatado.

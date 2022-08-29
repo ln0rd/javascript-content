@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+set -e
+
+echo "Linting codebase..."
+
+./node_modules/eslint/bin/eslint.js --format table --max-warnings 107 . $@

@@ -1,0 +1,10 @@
+Olá {{ user.name }},
+
+Utilize as seguintes credenciais para acessar sua conta no app/painel {{ company.parent_name }}.
+
+Usuário: {{ user.email }}
+
+Para cadastrar a sua primeira senha acesse a opção "Novo acesso" no app ou no painel.
+
+Email enviado por {{ company.parent_name }} referente a conta {{ company.name }}
+Direitos reservados a {{ company.parent_name }}

@@ -1,0 +1,65 @@
+import faker from 'faker'
+import moment from 'moment'
+
+export default function generatePayable({
+  type = 'credit',
+  payment_method = 'credit_card',
+  status = 'waiting_funds',
+  amount = faker.finance.account(8),
+  transaction_id = faker.finance.account(6),
+  iso_id = faker.random.alphaNumeric(24),
+  company_id = faker.random.alphaNumeric(24),
+  origin_company_id = company_id,
+  fee = 0,
+  mdr_fee = 0,
+  anticipation_fee = 0,
+  cost = 0,
+  mdr_cost = 0,
+  anticipation_cost = 0,
+  anticipation_amount = 0,
+  installment = 1,
+  cip_escrowed_amount = 0,
+  payment_date = moment().format('YYYY-MM-DD'),
+  original_payment_date = moment().format('YYYY-MM-DD'),
+  recalculated = false
+}) {
+  return {
+    amount,
+    installment,
+    provider: 'hash',
+    type,
+    status,
+    original_payment_date,
+    payment_date,
+    affiliation_id: faker.random.alphaNumeric(24),
+    mcc: 5211,
+    origin_affiliation_id: faker.random.alphaNumeric(24),
+    transaction_id,
+    provider_transaction_id: faker.random.alphaNumeric(24),
+    transaction_nsu: faker.random.alphaNumeric(24),
+    transaction_amount: faker.finance.account(6),
+    capture_method: 'emv',
+    split_rule_id: faker.random.alphaNumeric(24),
+    total_installments: 12,
+    payment_method,
+    transaction_captured_at: moment().format('YYYY-MM-DD'),
+    card_brand: 'visa',
+    origin_company_id,
+    owner_company_id: company_id,
+    iso_id,
+    company_id,
+    fee,
+    mdr_fee,
+    anticipation_fee,
+    cost,
+    mdr_cost,
+    anticipation_cost,
+    anticipation_amount,
+    cip_escrowed_amount,
+    processed: false,
+    recalculated,
+    toJSON() {
+      return this
+    }
+  }
+}

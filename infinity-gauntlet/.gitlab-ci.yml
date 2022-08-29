@@ -1,0 +1,37 @@
+variables:
+  PROJECT_ID: ig-core-prod-0002
+  GITLAB_REGISTRY: "registry.gitlab.com/hashlaborg/infra/images"
+  DEFAULT_DOMAIN: "ing.$PROJECT_ID.gcp.hash.com.br"
+  REGISTRY_IMAGE: "gcr.io/$PROJECT_ID/ig-core"
+  APPLICATION_TIMEZONE: "America/Sao_Paulo"
+  NAMESPACE: "ig-core-prod"
+  MAX_OLD_SPACE_WORKER: "2400"
+  SETTLEMENT_MAX_OLD_SPACE_WORKER: "3584"
+
+stages:
+  - Manual Task
+  - App Test/Publish
+  - App Deploy
+
+include:
+  - local: '.gitlab-ci/manual-task-cd.yml'
+  - local: '.gitlab-ci/base-cd.yml'
+  - local: '.gitlab-ci/workers-cd.yml'
+
+##############################
+# App:Prod CI/CD Specification
+##############################
+
+App:Publish:
+  stage: App Test/Publish
+  tags:
+    - shared
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - export GOOGLE_APPLICATION_CREDENTIALS=$REGISTRY_CREDENTIALS
+    - /kaniko/executor --build-arg=GITHUB_TOKEN=${GITHUB_TOKEN} --context $CI_PROJECT_DIR/ --dockerfile $CI_PROJECT_DIR/Dockerfile --destination $REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  except:
+    variables:
+      - $RUNNER_TASK

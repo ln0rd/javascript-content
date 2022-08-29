@@ -1,0 +1,3 @@
+{% for message in messages %}
+    {{ message.date }}    {{ message.description }}    {{ message.amount }}
+{% endfor %}
